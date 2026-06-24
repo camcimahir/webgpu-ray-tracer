@@ -1,8 +1,9 @@
+
+# WebGPU Ray Tracer
+
 <p align="center">
   <img src="preview.gif" alt="WebGPU Ray Tracer preview" width="520">
 </p>
-
-# WebGPU Ray Tracer
 
 A real-time ray tracer built from scratch in **WGSL** and **JavaScript**, running entirely on the GPU in the browser. The full scene is traced inside a fragment shader — no rendering libraries or frameworks.
 
