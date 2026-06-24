@@ -1,7 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>W1P1</title>
+    <meta charset="utf-8">
+    <title>WebGPU Ray Tracer</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: #1e1e1e;
+            color: #eaeaea;
+            font-family: system-ui, sans-serif;
+        }
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+        #webgpu-canvas {
+            border-radius: 8px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+            width: 512px;
+        }
+        .control {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 13px;
+        }
+        .control select {
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #2b2b2b;
+            color: #eaeaea;
+        }
+    </style>
     <script type="text/javascript" src="w03p1.js"></script>
 
     <script id="wgsl" type="x-shader">
@@ -54,7 +98,9 @@
 
         struct Uniforms_ui{
             use_repeat: f32,
-            use_linear: f32
+            use_linear: f32,
+            shader_sphere: f32,
+            shader_triangle: f32
         };   
         @group(0) @binding(1) var<uniform> uniforms_ui: Uniforms_ui;
         @group(0) @binding(2) var my_texture: texture_2d<f32>;
@@ -229,7 +275,10 @@
 
             var base_color = hit.diffuse;
             if (hit.use_texture) {
-                let tex_color = texture_nearest(my_texture, hit.texcoords, uniforms_ui.use_repeat > 0.5);
+                var tex_color = texture_nearest(my_texture, hit.texcoords, uniforms_ui.use_repeat > 0.5);
+                if (uniforms_ui.use_linear > 0.5) {
+                    tex_color = texture_linear(my_texture, hit.texcoords, uniforms_ui.use_repeat > 0.5);
+                }
                 base_color = tex_color;
             }
 
@@ -246,7 +295,7 @@
             var wr = reflect(light.w_i, hit.normal);
             var wo = normalize(-r.direction);
 
-            var shadeRay = Ray(hit.position, light.w_i, 1e-4, light.dist);
+            var shadeRay = Ray(hit.position, -light.w_i, 1e-4, light.dist);
             var shadeHit = HitInfo(false, 0.0, vec3f(0.0), vec3f(0.0), vec3f(0.0), vec3f(0.0), 1, false, vec2f(0.0));  
             if(intersect_scene(&shadeRay, &shadeHit)){
                 return (*hit).ambient;
@@ -255,11 +304,14 @@
             // Apply texture if enabled
             var base_color = hit.diffuse;
             if (hit.use_texture) {
-                let tex_color = texture_nearest(my_texture, hit.texcoords, uniforms_ui.use_repeat > 0.5);
+                var tex_color = texture_nearest(my_texture, hit.texcoords, uniforms_ui.use_repeat > 0.5);
+                if (uniforms_ui.use_linear > 0.5) {
+                    tex_color = texture_linear(my_texture, hit.texcoords, uniforms_ui.use_repeat > 0.5);
+                }
                 base_color = tex_color;
             }
 
-            var diffuse = (hit.diffuse / pi) * max(dot(hit.normal, light.w_i), 0.0) * light.L_i;
+            var diffuse = (hit.diffuse / pi) * max(dot(hit.normal, -light.w_i), 0.0) * light.L_i;
 
             let specular = pow(max(dot(wo, wr), 0.0), s); // Specular highlight
             let Lr = (pd / pi) + Ps * ((s + 2.0) / (2.0 * pi)) * specular * light.L_i;
@@ -401,16 +453,16 @@
             if(intersect_triangle(*r, hit, v)){
                 hit.diffuse = triangleColor * 0.9;
                 hit.ambient = triangleColor * 0.1;
-                hit.shader = 1;
+                hit.shader = u32(uniforms_ui.shader_triangle);
                 hit.use_texture = false;
                 r.tmax = hit.dist;
             }
 
             let center = vec3f(0.0, 0.5, 0.0);
-            let sphereColor = vec3f(0.0, 0.0, 0.0);
+            let sphereColor = vec3f(0.1, 0.3, 0.8);
 
             if(intersect_sphere(*r, hit, center, 0.3)){
-                hit.shader = 5;
+                hit.shader = u32(uniforms_ui.shader_sphere);
                 hit.diffuse = sphereColor * 0.9;
                 hit.ambient = sphereColor * 0.1;
                 hit.use_texture = false;
@@ -441,10 +493,19 @@
             let texcolor = textureLoad(texture, UV, 0);       
             return texcolor.rgb;     
         }    
-        //fn texture_linear(texture: texture_2d<f32>, texcoords: vec2f, repeat: bool) -> vec3f {       
-        //    let res = textureDimensions(texture);      
-        //    return texcolor.rgb;     
-        //}
+        fn texture_linear(texture: texture_2d<f32>, texcoords: vec2f, repeat: bool) -> vec3f {       
+            let res = textureDimensions(texture);       
+            let st = select(clamp(texcoords, vec2f(0), vec2f(1)), texcoords - floor(texcoords), repeat);       
+            let ab = st*vec2f(res) - 0.5;       
+            let frac = ab - floor(ab);       
+            let i0 = vec2u(floor(ab) + vec2f(res)) % res;       
+            let i1 = (i0 + 1) % res;       
+            let c00 = textureLoad(texture, vec2u(i0.x, i0.y), 0).rgb;       
+            let c10 = textureLoad(texture, vec2u(i1.x, i0.y), 0).rgb;       
+            let c01 = textureLoad(texture, vec2u(i0.x, i1.y), 0).rgb;       
+            let c11 = textureLoad(texture, vec2u(i1.x, i1.y), 0).rgb;       
+            return mix(mix(c00, c10, frac.x), mix(c01, c11, frac.x), frac.y);     
+        }
 
 
         
@@ -485,33 +546,52 @@
 
 </head>
 <body>
+    <h1>WebGPU Ray Tracer</h1>
+
     <canvas id="webgpu-canvas" width="512" height="512">
     </canvas>
 
-    <select id="glass">
-        <option value="1">Lambertian</option>
-        <option value="2">mirror</option>
-        <option value="3">phong</option>
-        <option value="default">default</option>
-    </select>
+    <div class="controls">
+        <div class="control">
+            <label for="glass">Sphere</label>
+            <select id="glass">
+                <option value="1">Lambertian</option>
+                <option value="2">phong</option>
+                <option value="3">mirror</option>
+                <option value="4">refractive</option>
+                <option value="5" selected>glossy</option>
+                <option value="0">base color</option>
+            </select>
+        </div>
 
-    
-    <select id="matte">
-        <option value="1">Lambertian</option>
-        <option value="2">mirror</option>
-        <option value="3">phong</option>
-        <option value="default">default</option>
-    </select>
+        <div class="control">
+            <label for="matte">Triangle</label>
+            <select id="matte">
+                <option value="1" selected>Lambertian</option>
+                <option value="2">phong</option>
+                <option value="3">mirror</option>
+                <option value="4">refractive</option>
+                <option value="5">glossy</option>
+                <option value="0">base color</option>
+            </select>
+        </div>
 
-    <select id="addressmode" size="2">         
-        <option value="0">clamp-to-edge</option>        
-        <option value="1" selected>repeat</option>    
-    </select>    
-    
-    <select id="filtermode" size="2">         
-        <option value="0">nearest</option>        
-        <option value="1" selected>linear</option>    
-    </select>
+        <div class="control">
+            <label for="addressmode">Address mode</label>
+            <select id="addressmode">
+                <option value="0">clamp-to-edge</option>
+                <option value="1" selected>repeat</option>
+            </select>
+        </div>
+
+        <div class="control">
+            <label for="filtermode">Filter</label>
+            <select id="filtermode">
+                <option value="0">nearest</option>
+                <option value="1" selected>linear</option>
+            </select>
+        </div>
+    </div>
 
 </body>
 </html>

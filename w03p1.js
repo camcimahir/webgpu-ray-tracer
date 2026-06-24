@@ -5,6 +5,10 @@ window.onload = function () {
 };
 
 async function main() {
+    if (!navigator.gpu) {
+        document.body.innerHTML = "WebGPU is not available in this browser. Use Chrome/Edge, or in Firefox enable dom.webgpu.enabled in about:config.";
+        return;
+    }
     const adapter = await navigator.gpu.requestAdapter();
     const device = await adapter.requestDevice();
     const canvas = document.getElementById('webgpu-canvas');
@@ -94,6 +98,9 @@ async function main() {
     var use_repeat = 1; // Default from HTML 'selected'
     var use_linear = 1; // Default from HTML 'selected'
 
+    var shader_sphere = parseInt(selectGlassShader.value);
+    var shader_triangle = parseInt(selectMatteShader.value);
+
     // Event Listeners
     selectRepeat.addEventListener('change', () => {
         use_repeat = parseInt(selectRepeat.value);
@@ -105,9 +112,15 @@ async function main() {
         requestAnimationFrame(animate);
     });
 
-    // Note: The Glass/Matte dropdowns change variables, but your current WGSL 
-    // hardcodes shaders (hit.shader = 1 or 5), so these won't visually change the scene 
-    // unless you update the WGSL intersect_scene function.
+    selectGlassShader.addEventListener('change', () => {
+        shader_sphere = parseInt(selectGlassShader.value);
+        requestAnimationFrame(animate);
+    });
+
+    selectMatteShader.addEventListener('change', () => {
+        shader_triangle = parseInt(selectMatteShader.value);
+        requestAnimationFrame(animate);
+    });
     
     document.onkeydown = (event) => {
         switch (event.key) {
@@ -125,7 +138,7 @@ async function main() {
         device.queue.writeBuffer(uniformBufferF, 0, dataF);
 
         // Write UI Uniforms (Binding 1) - WGSL expects f32, so we send floats!
-        const dataUI = new Float32Array([use_repeat, use_linear]);
+        const dataUI = new Float32Array([use_repeat, use_linear, shader_sphere, shader_triangle]);
         device.queue.writeBuffer(uniformBufferUI, 0, dataUI);
 
         render(device, context, pipeline, bindGroup);
