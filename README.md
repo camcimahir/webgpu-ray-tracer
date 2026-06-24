@@ -7,6 +7,8 @@
 
 A real-time ray tracer built from scratch in **WGSL** and **JavaScript**, running entirely on the GPU in the browser. The full scene is traced inside a fragment shader — no rendering libraries or frameworks.
 
+**[Live demo](https://camcimahir.github.io/rendering/w03p1.html)**
+
 ## Features
 
 - **GPU ray tracing** in a single WGSL fragment shader
@@ -20,7 +22,7 @@ A real-time ray tracer built from scratch in **WGSL** and **JavaScript**, runnin
 
 WebGPU · WGSL · JavaScript (no frameworks)
 
-## Running
+## Running locally
 
 Requires a WebGPU-capable browser (Chrome/Edge, or Firefox with `dom.webgpu.enabled`).
 
@@ -29,6 +31,18 @@ python3 -m http.server 8000
 ```
 
 Then open <http://localhost:8000/w03p1.html>.
+
+## Deploying
+
+This is a static site, so **GitHub Pages → Deploy from branch** is enough — you do not need GitHub Actions for this project.
+
+1. Push to `main`
+2. Repo **Settings → Pages**
+3. Source: **Deploy from a branch**
+4. Branch: `main` / **/ (root)**
+5. Save — the live URL will be `https://camcimahir.github.io/rendering/w03p1.html`
+
+If you rename the repo (e.g. to `webgpu-ray-tracer`), update the URL in this README to match.
 
 ## Controls
 
