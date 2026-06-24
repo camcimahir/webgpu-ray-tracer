@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="preview.png" alt="WebGPU Ray Tracer preview" width="520">
+  <img src="preview.gif" alt="WebGPU Ray Tracer preview" width="520">
 </p>
 
 # WebGPU Ray Tracer
